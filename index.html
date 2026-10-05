@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ПРАВИЛО: найди скрытое правило</title>
+<meta name="theme-color" content="#EEF1F5">
+<meta name="description" content="Логическая игра: найди скрытое правило, по которому раскрашены буквы.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..800&family=Unbounded:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF1F5; --surface:#FFFFFF; --ink:#16203A; --muted:#5B6579; --line:#CDD4DE;
+  --g:#2E9C6A; --y:#E2A82B; --r:#D24A3E; --on-g:#FFFFFF; --on-y:#2A1E00; --on-r:#FFFFFF;
+  --focus:#3B6FE0; --scrim:rgba(14,20,34,.42);
+  color-scheme: light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11161F; --surface:#1A212D; --ink:#E6EAF1; --muted:#8D97A9; --line:#2F3949;
+    --g:#33A673; --y:#E0AA35; --r:#D9544A; --focus:#7FA4FF; --scrim:rgba(0,0,0,.6);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11161F; --surface:#1A212D; --ink:#E6EAF1; --muted:#8D97A9; --line:#2F3949;
+  --g:#33A673; --y:#E0AA35; --r:#D9544A; --focus:#7FA4FF; --scrim:rgba(0,0,0,.6);
+  color-scheme: dark;
+}
+:root.cb{ --g:#2F6FE0; --y:#F0C24B; --r:#E07A1F; --on-r:#1E1000; }
+html{ height:100%; scroll-padding-top:env(safe-area-inset-top,0px); }
+*,*::before,*::after{ box-sizing:inherit; }
+body{
+  margin:0; min-height:100%; background:var(--bg); color:var(--ink);
+  font-family:"Onest", "Helvetica Neue", Arial, sans-serif; font-size:16px; line-height:1.45;
+  -webkit-tap-highlight-color:transparent;
+  display:flex; flex-direction:column;
+}
+button{ font:inherit; color:inherit; cursor:pointer; }
+:focus-visible{ outline:3px solid var(--focus); outline-offset:2px; }
+
+.app{ width:100%; max-width:460px; margin:0 auto; padding:0 20px; flex:1; }
+.top{ display:grid; grid-template-columns:44px 1fr 44px; align-items:center; padding:14px 0 6px; }
+.mark{
+  margin:0; text-align:center; font-size:24px; line-height:1; font-weight:900;
+  font-family:"Unbounded", "Arial Black", sans-serif; letter-spacing:.03em;
+}
+.icon{ width:44px; height:44px; border:0; background:none; border-radius:10px; display:grid; place-items:center; color:var(--ink); }
+.icon:hover{ background:var(--surface); }
+.icon svg{ width:22px; height:22px; }
+.meta{ display:flex; justify-content:space-between; color:var(--muted); font-size:14px; padding:2px 2px 18px; min-height:40px; }
+.meta b{ color:var(--ink); font-weight:700; }
+
+.board{ container-type:inline-size; }
+.examples{ display:flex; flex-direction:column; gap:12px; }
+.row{ display:grid; grid-template-columns:repeat(var(--n), var(--t)); gap:var(--gap); justify-content:center; }
+.row.ex{ --gap:5px; --t:min(40px, calc((100cqi - (var(--n) - 1) * 5px) / var(--n))); }
+.row.q{ --gap:6px; --t:min(54px, calc((100cqi - (var(--n) - 1) * 6px) / var(--n))); }
+
+.tile{
+  width:var(--t); height:var(--t); border-radius:7px; border:2px solid var(--line); background:var(--surface);
+  display:grid; place-items:center; position:relative; padding:0;
+  font-weight:700; font-size:calc(var(--t) * .46); line-height:1; color:var(--ink);
+}
+.tile[data-c="g"]{ background:var(--g); border-color:var(--g); color:var(--on-g); }
+.tile[data-c="y"]{ background:var(--y); border-color:var(--y); color:var(--on-y); }
+.tile[data-c="r"]{ background:var(--r); border-color:var(--r); color:var(--on-r); }
+button.tile:not(:disabled):active{ transform:scale(.94); }
+button.tile:disabled{ cursor:default; }
+.cb .tile[data-c]:not([data-c=""])::after{
+  position:absolute; top:2px; right:4px; font-size:max(9px, calc(var(--t) * .22)); line-height:1; opacity:.85;
+}
+.cb .tile[data-c="g"]::after{ content:"●"; }
+.cb .tile[data-c="y"]::after{ content:"▲"; }
+.cb .tile[data-c="r"]::after{ content:"■"; }
+
+.wrow{ display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.wrow .word{ font-weight:700; letter-spacing:.12em; font-size:20px; }
+.wrow.ex{ --t:36px; }
+.wrow.q{ --t:50px; }
+.wrow.q .word{ font-size:24px; }
+.wrow .tile{ flex:none; }
+.examples .wrow{ padding:2px 0; border-bottom:1px solid var(--line); padding-bottom:10px; }
+.examples .wrow:last-child{ border-bottom:0; }
+
+.divider{ display:flex; align-items:center; gap:12px; margin:26px 0 16px; color:var(--muted); font-size:14px; }
+.divider::before,.divider::after{ content:""; height:1px; background:var(--line); flex:1; }
+.questions{ display:flex; flex-direction:column; gap:14px; }
+
+.legend{ display:flex; align-items:center; justify-content:center; gap:6px; margin-top:16px; color:var(--muted); font-size:13px; }
+.sw{ width:14px; height:14px; border-radius:4px; }
+.sw[data-c="g"]{ background:var(--g); } .sw[data-c="y"]{ background:var(--y); } .sw[data-c="r"]{ background:var(--r); }
+.legend-t{ margin-left:4px; }
+
+.feedback{ text-align:center; min-height:24px; margin:14px 0 4px; font-weight:600; }
+.hints{ margin:6px 0 20px; padding:0; list-style:none; display:flex; flex-direction:column; gap:8px; }
+.hints li{ background:var(--surface); border-radius:10px; padding:10px 14px; font-size:15px; border-left:4px solid var(--y); }
+.hints li span{ color:var(--muted); font-size:13px; display:block; }
+
+.bar{ position:sticky; bottom:0; background:var(--bg); padding:10px 0 calc(14px + env(safe-area-inset-bottom,0px)); z-index:5; }
+.bar-in{ max-width:460px; margin:0 auto; padding:0 20px; display:grid; grid-template-columns:1fr 1fr 1.4fr; gap:8px; }
+.bar-in.two{ grid-template-columns:1fr 1.4fr; }
+.btn{
+  height:52px; border-radius:12px; border:2px solid var(--line); background:var(--surface);
+  font-weight:700; font-size:16px; padding:0 12px;
+}
+.btn.primary{ background:var(--ink); border-color:var(--ink); color:var(--bg); }
+.btn:disabled{ opacity:.45; cursor:default; }
+.btn small{ font-weight:500; color:var(--muted); }
+
+@keyframes flip{ 0%{transform:rotateX(0)} 50%{transform:rotateX(90deg)} 100%{transform:rotateX(0)} }
+.flip{ animation:flip .36s ease-in-out both; }
+@keyframes shake{ 0%,100%{transform:translateX(0)} 20%{transform:translateX(-7px)} 40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(3px)} }
+.shake{ animation:shake .4s ease; }
+
+.scrim{ position:fixed; inset:0; background:var(--scrim); opacity:0; pointer-events:none; transition:opacity .2s; z-index:20; }
+.scrim.open{ opacity:1; pointer-events:auto; }
+.sheet{
+  position:fixed; left:0; right:0; bottom:0; margin:0 auto; max-width:460px; max-height:88%; overflow:auto;
+  background:var(--surface); border-radius:18px 18px 0 0; z-index:21;
+  padding:22px 22px calc(22px + env(safe-area-inset-bottom,0px));
+  transform:translateY(105%); transition:transform .26s cubic-bezier(.2,.8,.2,1); visibility:hidden;
+}
+.sheet.open{ transform:none; visibility:visible; }
+.sheet h2{ margin:0 40px 6px 0; font-size:24px; line-height:1.15; font-weight:700; font-family:"Unbounded", "Arial Black", sans-serif; }
+.sheet h3{ margin:24px 0 6px; font-size:17px; }
+.sheet p{ margin:0 0 12px; }
+.sheet .sub{ color:var(--muted); }
+.close{ position:absolute; top:12px; right:12px; }
+.rule-name{ color:var(--muted); font-weight:600; margin-bottom:14px !important; }
+.explain{ font-size:18px; line-height:1.5; }
+.mini{ display:flex; flex-direction:column; gap:4px; margin:16px 0; font-size:18px; letter-spacing:2px; }
+.stats{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:16px 0 20px; }
+.stats div{ background:var(--bg); border-radius:10px; padding:10px 12px; }
+.stats dt{ font-size:13px; color:var(--muted); }
+.stats dd{ margin:0; font-size:22px; font-weight:800; }
+.sheet-actions{ display:grid; grid-template-columns:1fr 1.4fr; gap:8px; }
+.sheet-actions.one{ grid-template-columns:1fr; }
+.note{ color:var(--muted); font-size:14px; }
+.out{ min-height:20px; font-size:14px; color:var(--muted); margin-top:10px; }
+.out textarea{ width:100%; height:120px; font:13px/1.4 ui-monospace, Menlo, monospace; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--ink); padding:8px; }
+
+.grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(76px,1fr)); gap:8px; margin-top:14px; }
+.lv{
+  height:76px; border-radius:12px; border:2px solid var(--line); background:var(--bg);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:4px;
+}
+.lv b{ font-size:22px; font-weight:800; line-height:1; }
+.lv span{ font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+.lv.solved{ border-color:var(--g); }
+.lv.solved b{ color:var(--g); }
+.lv.revealed{ border-style:dashed; }
+.lv.current{ background:var(--ink); border-color:var(--ink); }
+.lv.current b,.lv.current span{ color:var(--bg); }
+.lv:disabled{ opacity:.4; cursor:default; }
+.lv svg{ width:16px; height:16px; }
+
+.setrow{ display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); }
+.setrow p{ margin:0; }
+.setrow small{ display:block; color:var(--muted); font-size:13px; }
+.switch{ width:52px; height:30px; border-radius:15px; border:0; background:var(--line); position:relative; flex:none; }
+.switch::after{ content:""; position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#fff; transition:transform .15s; }
+.switch[aria-checked="true"]{ background:var(--g); }
+.switch[aria-checked="true"]::after{ transform:translateX(22px); }
+.seg{ display:flex; background:var(--bg); border-radius:10px; padding:3px; }
+.seg button{ border:0; background:none; padding:6px 12px; border-radius:8px; font-size:14px; font-weight:600; }
+.seg button[aria-pressed="true"]{ background:var(--surface); box-shadow:0 0 0 1px var(--line); }
+.btnrow{ display:flex; gap:8px; flex-wrap:wrap; }
+.btnrow .btn{ height:44px; font-size:15px; }
+.issues{ margin:6px 0 0; padding-left:18px; color:var(--r); font-size:14px; }
+
+.confetti{ position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:30; }
+.confetti i{ position:absolute; top:-12px; width:9px; height:9px; border-radius:2px; animation:fall linear forwards; }
+@keyframes fall{ to{ transform:translateY(105vh) rotate(540deg); } }
+
+@media (prefers-reduced-motion: reduce){
+  .flip,.shake,.confetti i{ animation:none !important; }
+  .sheet,.scrim{ transition:none; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <button class="icon" id="btnLevels" aria-label="Все правила">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>
+    </button>
+    <h1 class="mark">ПРАВИЛО</h1>
+    <button class="icon" id="btnSettings" aria-label="Настройки">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg>
+    </button>
+  </header>
+  <div class="meta"><span id="lvlName"></span><span id="streak"></span></div>
+  <main class="board" id="board"></main>
+  <p class="feedback" id="feedback" aria-live="polite"></p>
+  <ol class="hints" id="hints"></ol>
+</div>
+<div class="bar"><div class="bar-in" id="actions"></div></div>
+<div class="scrim" id="scrim"></div>
+<section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <button class="icon close" data-act="close" aria-label="Закрыть">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+  </button>
+  <div id="sheetBody"></div>
+</section>
+<div class="confetti" id="confetti" aria-hidden="true"></div>
+
+<script src="levels.js"></script>
+<script>
+(function(){
+const COLORS = ["g","y","r"], NAMES = {g:"зелёный", y:"жёлтый", r:"красный"}, EMOJI = {g:"🟩", y:"🟨", r:"🟥"};
+const $ = id => document.getElementById(id);
+const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+const KEY = "pravilo-mvp-v1";
+const plural = (n, one, few, many) => { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many; };
+const LOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+
+function readStore(){ try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch(e){ return null; } }
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} }
+
+const S = Object.assign({ current:1, streak:0, best:0, sound:true, theme:"auto", cb:false, seenIntro:false, levels:{}, sessions:[] }, readStore() || {});
+S.sessions.push(new Date().toISOString());
+if (S.sessions.length > 300) S.sessions = S.sessions.slice(-300);
+save();
+
+const byId = id => LEVELS.find(l => l.id === id);
+const rec = id => S.levels[id] || (S.levels[id] = { attempts:0, hints:0, solved:false, revealed:false, timeSec:null, firstSeen:new Date().toISOString() });
+const isDone = id => { const r = S.levels[id]; return !!(r && (r.solved || r.revealed)); };
+const unlocked = id => id === 1 || isDone(id) || isDone(id - 1);
+const report = LEVELS.map(l => ({ id:l.id, issues:validateLevel(l) }));
+const poolSize = Object.keys(RULES).length + Object.keys(ALT_RULES).length;
+
+// ---------- sound ----------
+let ac = null;
+function beep(type){
+  if (!S.sound) return;
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    const seq = { click:[[700,.035]], bad:[[196,.12],[165,.16]], win:[[523,.08],[659,.08],[784,.08],[1047,.22]] }[type];
+    let t = ac.currentTime;
+    seq.forEach(([f,d]) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = "triangle"; o.frequency.value = f;
+      g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.12, t + .01); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+      o.connect(g).connect(ac.destination); o.start(t); o.stop(t + d + .02); t += d;
+    });
+  } catch(e){}
+}
+
+// ---------- theme ----------
+function applyPrefs(){
+  const root = document.documentElement;
+  if (S.theme === "auto") root.removeAttribute("data-theme"); else root.setAttribute("data-theme", S.theme);
+  root.classList.toggle("cb", !!S.cb);
+}
+
+// ---------- level ----------
+let cur = null;
+function load(id){
+  const level = byId(id); if (!level) return;
+  const r = rec(id);
+  S.current = id; save();
+  const exOut = solve(level, level.examples), qOut = solve(level, level.question);
+  const done = r.solved || r.revealed;
+  cur = {
+    level, exOut, qOut, kind:RULES[level.rule].kind,
+    palette: COLORS.filter(c => exOut.flat().includes(c)),
+    answer: done ? qOut.map(a => [...a]) : qOut.map(a => a.map(() => null)),
+    hintsShown: Math.min(r.hints, 3), startedAt: Date.now(), done, busy:false
+  };
+  render();
+  window.scrollTo(0, 0);
+}
+
+function letterRow(w, cols, q, qi){
+  return `<div class="row ${q ? "q" : "ex"}" style="--n:${w.length}">` + [...w].map((ch, i) => {
+    const c = cols[i] || "";
+    return q
+      ? `<button class="tile" data-c="${c}" data-q="${qi}" data-i="${i}" aria-label="${ch}, ${c ? NAMES[c] : "без цвета"}"${cur.done ? " disabled" : ""}>${ch}</button>`
+      : `<span class="tile" data-c="${c}" role="img" aria-label="${ch}, ${NAMES[c]}">${ch}</span>`;
+  }).join("") + `</div>`;
+}
+function wordRow(w, c, q, qi){
+  c = c || "";
+  return `<div class="wrow ${q ? "q" : "ex"}"><span class="word">${w}</span>` + (q
+    ? `<button class="tile verdict" data-c="${c}" data-q="${qi}" data-i="0" aria-label="${w}, ${c ? NAMES[c] : "без цвета"}"${cur.done ? " disabled" : ""}></button>`
+    : `<span class="tile verdict" data-c="${c}" role="img" aria-label="${NAMES[c]}"></span>`) + `</div>`;
+}
+
+function render(){
+  const { level, exOut, kind } = cur;
+  $("lvlName").innerHTML = `Правило <b>${level.id}</b> из ${LEVELS.length}` + (cur.done ? `: ${level.title}` : "");
+  $("streak").innerHTML = S.streak > 0 ? `Серия <b>${S.streak}</b>` : "";
+  let h = `<div class="examples">`;
+  level.examples.forEach((w, i) => { h += kind === "letter" ? letterRow(w, exOut[i], false) : wordRow(w, exOut[i][0], false); });
+  h += `</div><div class="divider">Ваш ход</div><div class="questions" id="questions">`;
+  level.question.forEach((w, qi) => { h += kind === "letter" ? letterRow(w, cur.answer[qi], true, qi) : wordRow(w, cur.answer[qi][0], true, qi); });
+  h += `</div><div class="legend">${cur.palette.map(c => `<span class="sw" data-c="${c}"></span>`).join("")}<span class="legend-t">${cur.palette.length} ${plural(cur.palette.length,"цвет","цвета","цветов")} в этом правиле${kind === "word" ? ", один на слово" : ""}</span></div>`;
+  $("board").innerHTML = h;
+  $("feedback").textContent = "";
+  renderHints(); renderActions();
+}
+
+function renderHints(){
+  $("hints").innerHTML = cur.level.hints.slice(0, cur.hintsShown).map((t, i) => `<li><span>Подсказка ${i + 1}</span>${t}</li>`).join("");
+}
+
+function renderActions(){
+  const a = $("actions");
+  if (cur.done){
+    const next = byId(cur.level.id + 1);
+    a.className = "bar-in two";
+    a.innerHTML = `<button class="btn" data-act="explain">Правило</button><button class="btn primary" data-act="next">${next ? "Дальше" : "Все правила"}</button>`;
+  } else {
+    const left = 3 - cur.hintsShown;
+    a.className = "bar-in";
+    a.innerHTML = `<button class="btn" data-act="clear">Сбросить</button>` +
+      (left > 0 ? `<button class="btn" data-act="hint">Подсказка <small>${left}</small></button>` : `<button class="btn" data-act="reveal">Ответ</button>`) +
+      `<button class="btn primary" data-act="check">Проверить</button>`;
+  }
+}
+
+// ---------- play ----------
+function tap(btn){
+  if (cur.done || cur.busy) return;
+  const q = +btn.dataset.q, i = +btn.dataset.i;
+  const seq = [null, ...cur.palette];
+  const next = seq[(seq.indexOf(cur.answer[q][i]) + 1) % seq.length];
+  cur.answer[q][i] = next;
+  btn.dataset.c = next || "";
+  const label = btn.classList.contains("verdict") ? cur.level.question[q] : cur.level.question[q][i];
+  btn.setAttribute("aria-label", `${label}, ${next ? NAMES[next] : "без цвета"}`);
+  $("feedback").textContent = "";
+  beep("click");
+}
+
+function animateTiles(cb){
+  const tiles = [...document.querySelectorAll("#questions .tile")];
+  if (reduce.matches){ cb(); return; }
+  tiles.forEach((t, i) => { t.style.animationDelay = (i * 60) + "ms"; t.classList.add("flip"); });
+  setTimeout(() => { tiles.forEach(t => { t.classList.remove("flip"); t.style.animationDelay = ""; }); cb(); }, tiles.length * 60 + 380);
+}
+function shake(){
+  const el = $("questions"); if (!el || reduce.matches) return;
+  el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake");
+}
+
+function check(){
+  if (cur.done || cur.busy) return;
+  const flat = cur.answer.flat();
+  if (flat.some(c => !c)){ $("feedback").textContent = cur.kind === "word" ? "Сначала раскрасьте все слова." : "Сначала раскрасьте все клетки."; shake(); return; }
+  const r = rec(cur.level.id);
+  r.attempts++; save();
+  const correct = cur.qOut.flat();
+  const ok = flat.filter((c, i) => c === correct[i]).length;
+  cur.busy = true;
+  animateTiles(() => {
+    cur.busy = false;
+    if (ok === flat.length) return win();
+    const unit = cur.kind === "word" ? plural(flat.length, "слова", "слов", "слов") : plural(flat.length, "клетки", "клеток", "клеток");
+    let msg = `Верно ${ok} из ${flat.length} ${unit}.`;
+    if (r.attempts >= 3 && cur.hintsShown < 3) msg += " Подсказка сузит поиск.";
+    $("feedback").textContent = msg;
+    shake(); beep("bad");
+  });
+}
+
+function win(){
+  const r = rec(cur.level.id);
+  if (!r.solved && !r.revealed){
+    r.solved = true;
+    r.timeSec = Math.round((Date.now() - cur.startedAt) / 1000);
+    S.streak++; S.best = Math.max(S.best, S.streak);
+  }
+  save();
+  cur.done = true;
+  render(); beep("win"); confetti();
+  setTimeout(() => openResult(), reduce.matches ? 0 : 450);
+}
+
+function hint(){
+  if (cur.hintsShown >= 3) return;
+  cur.hintsShown++;
+  const r = rec(cur.level.id); r.hints = Math.max(r.hints, cur.hintsShown); save();
+  renderHints(); renderActions();
+}
+
+function reveal(){
+  const r = rec(cur.level.id);
+  if (!r.solved){ r.revealed = true; S.streak = 0; }
+  save();
+  cur.answer = cur.qOut.map(a => [...a]); cur.done = true;
+  render(); openResult();
+}
+
+function confetti(){
+  if (reduce.matches) return;
+  const box = $("confetti");
+  const cols = ["var(--g)", "var(--y)", "var(--r)"];
+  for (let i = 0; i < 30; i++){
+    const p = document.createElement("i");
+    p.style.left = Math.random() * 100 + "vw";
+    p.style.background = cols[i % 3];
+    p.style.animationDuration = (1 + Math.random() * .9) + "s";
+    p.style.animationDelay = Math.random() * .25 + "s";
+    box.appendChild(p);
+  }
+  setTimeout(() => { box.innerHTML = ""; }, 2300);
+}
+
+// ---------- sheets ----------
+let sheetKind = null;
+function openSheet(kind, html){
+  sheetKind = kind;
+  $("sheetBody").innerHTML = html;
+  $("scrim").classList.add("open"); $("sheet").classList.add("open");
+  setTimeout(() => { const f = $("sheet").querySelector(".btn.primary, .lv.current, .btn"); if (f) f.focus({ preventScroll:true }); }, 50);
+}
+function closeSheet(){
+  $("scrim").classList.remove("open"); $("sheet").classList.remove("open"); sheetKind = null;
+}
+
+const fmtTime = s => s == null ? "–" : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+function emojiRows(out){ return out.map(row => row.map(c => EMOJI[c]).join("")); }
+
+function openResult(){
+  const l = cur.level, r = rec(l.id), next = byId(l.id + 1);
+  const solved = r.solved;
+  openSheet("result", `
+    <h2 id="sheetTitle">${solved ? "Разгадано" : "Правило"}</h2>
+    <p class="rule-name">Правило ${l.id}: ${l.title}</p>
+    <p class="explain">${l.explain}</p>
+    ${solved
+      ? `<dl class="stats"><div><dt>Попытки</dt><dd>${r.attempts}</dd></div><div><dt>Подсказки</dt><dd>${r.hints}</dd></div><div><dt>Время</dt><dd>${fmtTime(r.timeSec)}</dd></div></dl>`
+      : `<p class="note">Открытые правила не идут в серию.</p>`}
+    <div class="sheet-actions${solved ? "" : " one"}">
+      ${solved ? `<button class="btn" data-act="share">Поделиться</button>` : ""}
+      <button class="btn primary" data-act="next">${next ? "Дальше" : "Все правила"}</button>
+    </div>
+    <div class="out" id="out" aria-live="polite"></div>`);
+}
+
+function openLevels(){
+  const solved = LEVELS.filter(l => S.levels[l.id] && S.levels[l.id].solved).length;
+  openSheet("levels", `
+    <h2 id="sheetTitle">Все правила</h2>
+    <p class="sub">Разгадано ${solved} из ${LEVELS.length}. Лучшая серия: ${S.best}.</p>
+    <div class="grid">${LEVELS.map(l => {
+      const r = S.levels[l.id] || {}, open = unlocked(l.id);
+      const cls = ["lv", r.solved ? "solved" : r.revealed ? "revealed" : "", cur && cur.level.id === l.id ? "current" : ""].join(" ");
+      const sub = r.solved || r.revealed ? l.title : open ? "Открыто" : LOCK;
+      return `<button class="${cls}" data-lv="${l.id}" ${open ? "" : "disabled"} aria-label="Правило ${l.id}${r.solved ? ", разгадано" : r.revealed ? ", ответ открыт" : open ? "" : ", закрыто"}"><b>${l.id}</b><span>${sub}</span></button>`;
+    }).join("")}</div>`);
+}
+
+function openSettings(){
+  const bad = report.filter(x => x.issues.length);
+  const sw = (act, on) => `<button class="switch" role="switch" aria-checked="${on}" data-act="${act}"></button>`;
+  openSheet("settings", `
+    <h2 id="sheetTitle">Настройки</h2>
+    <div class="setrow"><p>Звук</p>${sw("sound", S.sound)}</div>
+    <div class="setrow"><p>Режим для дальтоников<small>Синий, жёлтый и оранжевый со значками</small></p>${sw("cb", S.cb)}</div>
+    <div class="setrow"><p>Тема</p><div class="seg">${[["auto","Авто"],["light","Светлая"],["dark","Тёмная"]].map(([t, n]) => `<button data-theme-set="${t}" aria-pressed="${S.theme === t}">${n}</button>`).join("")}</div></div>
+    <h3>Результаты теста</h3>
+    <p class="note">Прогресс хранится только в этом браузере. Скопируйте статистику и отправьте тому, кто дал вам игру.</p>
+    <div class="btnrow"><button class="btn" data-act="stats">Скопировать статистику</button><button class="btn" data-act="howto">Как играть</button><button class="btn" data-act="reset" id="resetBtn">Сбросить прогресс</button></div>
+    <h3>Проверка правил</h3>
+    <p class="note">Проверено ${LEVELS.length - bad.length} из ${LEVELS.length}. Примеры каждого уровня прогоняются через ${poolSize} правил-кандидатов: ни одно другое правило не объясняет их с другим ответом.</p>
+    ${bad.length ? `<ul class="issues">${bad.map(b => `<li>Правило ${b.id}: ${b.issues.join("; ")}</li>`).join("")}</ul>` : ""}
+    <div class="out" id="out" aria-live="polite"></div>`);
+}
+
+function openIntro(){
+  openSheet("intro", `
+    <h2 id="sheetTitle">Найди правило</h2>
+    <p class="explain">Слова над чертой раскрашены по одному скрытому правилу. Разгадайте его и раскрасьте своё слово так же.</p>
+    <p>Нажмите на клетку, чтобы сменить цвет. На каждом уровне правило новое, и цвета тоже значат другое.</p>
+    <div class="sheet-actions one"><button class="btn primary" data-act="start">Начать</button></div>`);
+}
+
+// ---------- share / export ----------
+function deliver(text, label){
+  const out = $("out");
+  const fallback = () => { out.innerHTML = `Выделите и скопируйте:<textarea readonly>${text.replace(/</g, "&lt;")}</textarea>`; const ta = out.querySelector("textarea"); ta.focus(); ta.select(); };
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(() => { out.textContent = label; }, fallback);
+  } else fallback();
+}
+function share(){
+  const l = cur.level, r = rec(l.id);
+  const text = [`ПРАВИЛО #${String(l.id).padStart(3, "0")}`, ...emojiRows(cur.exOut), "", `Разгадано с ${r.attempts}-й попытки, ${r.hints ? r.hints + " " + plural(r.hints, "подсказка", "подсказки", "подсказок") : "без подсказок"}`].join("\n");
+  if (navigator.share){ navigator.share({ text }).catch(() => deliver(text, "Скопировано.")); }
+  else deliver(text, "Скопировано.");
+}
+function exportStats(){
+  const data = {
+    app:"ПРАВИЛО MVP", exportedAt:new Date().toISOString(),
+    sessions:S.sessions.length, activeDays:[...new Set(S.sessions.map(s => s.slice(0, 10)))],
+    streak:S.streak, bestStreak:S.best,
+    levels: LEVELS.filter(l => S.levels[l.id]).map(l => Object.assign({ id:l.id, rule:l.rule }, S.levels[l.id]))
+  };
+  deliver(JSON.stringify(data, null, 2), "Статистика скопирована. Вставьте её в сообщение.");
+}
+
+// ---------- events ----------
+$("board").addEventListener("click", e => { const b = e.target.closest("button.tile[data-q]"); if (b) tap(b); });
+$("btnLevels").addEventListener("click", openLevels);
+$("btnSettings").addEventListener("click", openSettings);
+$("scrim").addEventListener("click", () => { if (sheetKind === "intro") startIntro(); else closeSheet(); });
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && sheetKind){ if (sheetKind === "intro") startIntro(); else closeSheet(); }
+  else if (e.key === "Enter" && !sheetKind && document.activeElement === document.body) check();
+});
+function startIntro(){ S.seenIntro = true; save(); closeSheet(); }
+function goNext(){
+  closeSheet();
+  const next = byId(cur.level.id + 1);
+  if (next) load(next.id); else openLevels();
+}
+
+$("actions").addEventListener("click", e => {
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  ({ clear:() => { if (cur.done) return; cur.answer = cur.answer.map(a => a.map(() => null)); render(); },
+     hint, reveal, check, explain:openResult, next:goNext })[b.dataset.act]();
+});
+
+$("sheet").addEventListener("click", e => {
+  const lv = e.target.closest("[data-lv]");
+  if (lv){ closeSheet(); load(+lv.dataset.lv); return; }
+  const th = e.target.closest("[data-theme-set]");
+  if (th){ S.theme = th.dataset.themeSet; save(); applyPrefs(); openSettings(); return; }
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const act = b.dataset.act;
+  if (act === "close"){ if (sheetKind === "intro") startIntro(); else closeSheet(); }
+  else if (act === "start") startIntro();
+  else if (act === "next") goNext();
+  else if (act === "share") share();
+  else if (act === "sound"){ S.sound = !S.sound; save(); b.setAttribute("aria-checked", S.sound); }
+  else if (act === "cb"){ S.cb = !S.cb; save(); applyPrefs(); b.setAttribute("aria-checked", S.cb); }
+  else if (act === "stats") exportStats();
+  else if (act === "howto") openIntro();
+  else if (act === "reset"){
+    if (b.dataset.armed){
+      const keep = { sound:S.sound, theme:S.theme, cb:S.cb, seenIntro:true, sessions:S.sessions };
+      Object.keys(S).forEach(k => delete S[k]);
+      Object.assign(S, { current:1, streak:0, best:0, levels:{} }, keep); save();
+      closeSheet(); load(1);
+    } else { b.dataset.armed = "1"; b.textContent = "Нажмите ещё раз"; }
+  }
+});
+
+// ---------- start ----------
+applyPrefs();
+load(unlocked(S.current) && byId(S.current) ? S.current : 1);
+if (!S.seenIntro) openIntro();
+})();
+</script>
+</body>
+</html>
